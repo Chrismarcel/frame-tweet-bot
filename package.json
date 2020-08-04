@@ -1,0 +1,29 @@
+{
+  "name": "frame-tweet-bot",
+  "version": "1.0.0",
+  "description": "A Twitter bot that applies stylistic frames to target tweet.",
+  "main": "index.js",
+  "scripts": {
+    "start:dev": "nodemon server/app"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Chrismarcel/frame-tweet-bot.git"
+  },
+  "author": "Chrismarcel",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Chrismarcel/frame-tweet-bot/issues"
+  },
+  "homepage": "https://github.com/Chrismarcel/frame-tweet-bot#readme",
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "canvas": "^2.6.1",
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1",
+    "nodemon": "^2.0.4",
+    "twit": "^2.2.11",
+    "twitter-error-handler": "^2.1.0",
+    "twittersignin": "^1.1.0"
+  }
+}
