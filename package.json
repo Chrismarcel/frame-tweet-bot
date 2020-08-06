@@ -19,9 +19,11 @@
   "dependencies": {
     "body-parser": "^1.19.0",
     "canvas": "^2.6.1",
+    "canvas-emoji": "^1.0.7",
     "dotenv": "^8.2.0",
     "express": "^4.17.1",
     "nodemon": "^2.0.4",
+    "twemoji-parser": "^13.0.0",
     "twit": "^2.2.11",
     "twitter-error-handler": "^2.1.0",
     "twittersignin": "^1.1.0"
