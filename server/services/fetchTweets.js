@@ -1,35 +1,40 @@
-const Twit = require('twit');
-const config = require('../config');
+const Twit = require('../config').twitInstance;
 const { wrapTwitterErrors } = require('twitter-error-handler');
-
-const T = new Twit(config.TWITTER_SIGNIN_CONFIG);
-
-const fetchMentions = async () => {
-  const endpoint = 'statuses/mentions_timeline';
-  try {
-    const mentions = await T.get(endpoint, {
-      count: 200,
-      include_entities: false,
-    });
-    return mentions;
-  } catch (error) {
-    wrapTwitterErrors(endpoint, error);
-  }
-};
+const replyTweet = require('./replyTweet');
+const { formatDate } = require('../helpers');
 
 const getTweetToBeFramed = async (id) => {
-  const endpoint = `statuses/show.json`;
+  const endpoint = `statuses/show/:id`;
   try {
-    const targetTweet = await T.get(endpoint, {
+    const targetTweet = await Twit.get(endpoint, {
       id,
-      trim_user: true,
       include_entities: false,
       tweet_mode: 'extended',
     });
-    return targetTweet.full_text;
+    const tweetData = targetTweet.data;
+
+    return {
+      tweet: tweetData.full_text || '',
+      profile_img: tweetData.user.profile_image_url_https,
+      user_handle: `@${tweetData.user.screen_name}`,
+      tweet_date: formatDate(tweetData.created_at),
+    };
   } catch (error) {
     wrapTwitterErrors(endpoint, error);
   }
 };
 
-module.exports = { fetchMentions, getTweetToBeFramed };
+const fetchMentions = async () => {
+  try {
+    const stream = Twit.stream('statuses/filter', { track: '@BlockTweep' });
+    stream.on('tweet', async (tweet) => {
+      const { in_reply_to_status_id_str: tweetId } = tweet;
+      const tweetDetails = await getTweetToBeFramed(tweetId);
+      replyTweet(tweetDetails, tweetId);
+    });
+  } catch (error) {
+    throw new Error(error);
+  }
+};
+
+module.exports = fetchMentions;

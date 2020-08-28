@@ -1,46 +1,100 @@
 const { createCanvas, loadImage, registerFont } = require('canvas');
 const fs = require('fs').promises;
-const { parse } = require('twemoji-parser');
 const path = require('path');
+const { combineTextWithEmojis } = require('../helpers');
 
-const ASSETS_DIR = path.join(`${__dirname}`, '../../public/assets');
+const PUBLIC_DIR = path.join(`${__dirname}`, '../../public');
 
 class FrameGenerator {
-  constructor(tweet) {
-    this.FONT_SIZE = 32;
-    this.OFFSET_TEXT_LEFT = 0;
+  constructor({ tweet, profile_img, user_handle, tweet_date }) {
+    this.FONT_SIZE = 20;
     this.OFFSET_TEXT_TOP = 0;
-    this.TWEET = tweet;
+    this.TWEET_OBJ = { tweet, profile_img, user_handle, tweet_date };
+    this.CANVAS_WIDTH = 1024;
+    this.CANVAS_HEIGHT = 512;
   }
 
-  async getFrameImage() {
+  async fetchImage(imageName) {
     try {
-      const frameImage = await fs.readFile(
-        `${ASSETS_DIR}/img/wooden-frame.png`
-      );
-      return frameImage;
+      const image = await fs.readFile(`${PUBLIC_DIR}/img/${imageName}`);
+      return image;
     } catch (error) {
       throw new Error(error);
     }
   }
 
-  drawEmojiOnPositions(emojiData) {
+  async getRandomFrameBackground() {
+    const frames = await fs.readdir(`${PUBLIC_DIR}/img/bg`);
+    const randomIndex = Math.floor(Math.random() * frames.length);
+    return frames[randomIndex];
+  }
+
+  drawTextOverlay() {
+    this.CONTEXT.fillStyle = '#ffffff';
+    // y = (Canvas Height - Height of Overlay Rect) / 2
+    // x = (Canvas Width - Width of Overlay Rect) / 2
+    this.CONTEXT.fillRect(70, 84.5, 884, 343);
+  }
+
+  drawUserAvatar() {
+    const { user_handle, profile_img } = this.TWEET_OBJ;
+    const PROFILE_IMG_HEIGHT = 48;
+    const PROFILE_IMG_WIDTH = 48;
+    this.CONTEXT.font = 'bold 24px Eczar';
+    this.CONTEXT.fillStyle = '#DAC9C9';
+
+    const userHandleWidth = this.CONTEXT.measureText(user_handle).width;
+    const offsetX = this.CANVAS_WIDTH - this.TEXT_BLOCK_WIDTH - userHandleWidth;
+
+    return loadImage(profile_img)
+      .then((profile_img) => {
+        this.CONTEXT.drawImage(
+          profile_img,
+          offsetX - 210,
+          this.OFFSET_TEXT_TOP + this.TEXT_BLOCK_HEIGHT + 12,
+          PROFILE_IMG_WIDTH,
+          PROFILE_IMG_HEIGHT
+        );
+      })
+      .catch((error) => {
+        throw new Error(error);
+      });
+  }
+
+  drawUsername() {
+    const { user_handle, tweet_date } = this.TWEET_OBJ;
+    this.CONTEXT.font = 'bold 24px Eczar';
+    this.CONTEXT.fillStyle = '#DAC9C9';
+    const marginRight = 140;
+
+    const userHandleWidth = this.CONTEXT.measureText(user_handle).width;
+    const offsetX = this.CANVAS_WIDTH - this.TEXT_BLOCK_WIDTH - userHandleWidth;
+
+    this.CONTEXT.fillText(
+      user_handle,
+      offsetX - marginRight,
+      this.OFFSET_TEXT_TOP + this.TEXT_BLOCK_HEIGHT + 25
+    );
+
+    this.CONTEXT.font = 'bold 18px Eczar';
+    this.CONTEXT.fillStyle = '#B2A0A0';
+    this.CONTEXT.fillText(
+      tweet_date,
+      offsetX - marginRight,
+      this.OFFSET_TEXT_TOP + this.TEXT_BLOCK_HEIGHT + 55
+    );
+  }
+
+  drawEmojis(emojiData) {
     const emojis = [];
     emojiData.forEach((emojiPositions) => {
-      const { row, url, indices, isEmojiLastCharOnLine } = emojiPositions;
-      const EMOJI_HEIGHT = 34;
-      const EMOJI_WIDTH = 34;
+      const { rowIndex, url, textWidth } = emojiPositions;
 
-      let marginLeft = 0;
-      // Position emoji properly at the end of text
-      // For weird reasons, if emoji is last, it overlaps with parts of text
-      if (isEmojiLastCharOnLine) {
-        marginLeft = 38;
-      }
+      const EMOJI_HEIGHT = 22;
+      const EMOJI_WIDTH = 22;
 
-      // 13.5 = Assumed value of each character width
-      const offsetX = this.OFFSET_TEXT_LEFT + 13.5 * indices[0] + marginLeft;
-      const offsetY = this.LINE_GAP * row + this.OFFSET_TEXT_TOP;
+      const offsetX = this.OFFSET_TEXT_LEFT + textWidth;
+      const offsetY = this.LINE_GAP * rowIndex + this.OFFSET_TEXT_TOP - 48;
 
       const emoji = loadImage(url).then((emoji) => {
         this.CONTEXT.drawImage(
@@ -57,113 +111,73 @@ class FrameGenerator {
     return emojis;
   }
 
-  parseEmoji(text) {
-    // Node-Canvas doesn't support emoji's for now
-    // And other alternatives don't support multiline strings
-    // Hence, we need to manually parse the text and determine the positions of the emoji
-
-    const linesOfText = text.split('\n');
-    const emojiData = [];
-    linesOfText.forEach((line, index) => {
-      // Check if there's an emoji on a line
-      const parsedLine = parse(line);
-      parsedLine.row = index + 1;
-      const emojisPresent = Array.isArray(parsedLine);
-      if (emojisPresent && parsedLine.length > 0) {
-        parsedLine.forEach((emojiObj) => {
-          const emojiDetails = {
-            ...emojiObj,
-            row: index + 1,
-            isEmojiLastCharOnLine: line.length - 1 <= emojiObj.indices[1],
-            isEmojiFirstCharOnLine: emojiObj.indices[0] === 0,
-          };
-          emojiData.push(emojiDetails);
-        });
-      }
-    });
-    const textWithoutEmoji = linesOfText.join('\n');
-    return { frameText: textWithoutEmoji, emojiData };
-  }
-
-  breakTweetIntoLines() {
-    const str = this.TWEET;
-    const formattedStr = str.replace(/\n+/g, ' '); // Convert all new line characters to spaces
-    const STR_LENGTH = formattedStr.length;
-    const CHARACTERS_PER_LINE = 33; // Limit characters per line to 33 characters
-
-    let parsedText = '';
-    let lineStartIndex = 1;
-    let lineEndIndex = CHARACTERS_PER_LINE;
-
-    if (formattedStr.length <= CHARACTERS_PER_LINE) {
-      parsedText = formattedStr;
-    } else {
-      for (let charIndex = 0; charIndex < STR_LENGTH; charIndex++) {
-        parsedText += formattedStr[charIndex];
-        if (charIndex === lineEndIndex && formattedStr[lineEndIndex] === ' ') {
-          parsedText += `\n`;
-          lineStartIndex++;
-          lineEndIndex = CHARACTERS_PER_LINE * lineStartIndex;
-        } else if (charIndex === lineEndIndex && lineEndIndex !== ' ') {
-          lineEndIndex++;
-        }
-      }
-    }
-
-    const { frameText, emojiData } = this.parseEmoji(parsedText);
-    return { linesOfText: lineStartIndex, frameText, emojiData };
-  }
-
   async frameTweet() {
     try {
-      registerFont(`${ASSETS_DIR}/fonts/Eczar-SemiBold.ttf`, {
+      registerFont(`${PUBLIC_DIR}/fonts/Eczar-SemiBold.ttf`, {
         family: 'sans-serif',
       });
-
-      const frameImage = await this.getFrameImage();
-      const image = await loadImage(frameImage);
-      this.CANVAS_WIDTH = image.width;
-      this.CANVAS_HEIGHT = image.height;
 
       const canvas = createCanvas(this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
       const context = canvas.getContext('2d');
       this.CONTEXT = context;
 
+      const patternName = await this.getRandomFrameBackground();
+      const frameImage = await this.fetchImage(`bg/${patternName}`);
+      const frameBackground = await loadImage(frameImage);
+
       this.CONTEXT.drawImage(
-        image,
+        frameBackground,
         0,
         0,
         this.CANVAS_WIDTH,
         this.CANVAS_HEIGHT
       );
 
-      const { frameText, linesOfText, emojiData } = this.breakTweetIntoLines();
-      const marginBottom = 24; // Assume margin bottom of each line to be 20px
-      const frameTextHeight = (this.FONT_SIZE + marginBottom) * linesOfText;
-      const frameTextWidth = this.CONTEXT.measureText(frameText).width;
+      this.drawTextOverlay();
 
-      this.CONTEXT.font = `bold ${this.FONT_SIZE}px Eczar`;
+      this.CONTEXT.font = `normal ${this.FONT_SIZE}px Eczar`;
       this.CONTEXT.textAlign = 'left';
-      this.CONTEXT.fillStyle = '#ffffff';
+      this.CONTEXT.fillStyle = '#000000';
+
+      const {
+        textWithoutEmojis,
+        numLinesOfText,
+        emojiData,
+      } = combineTextWithEmojis({
+        context: this.CONTEXT,
+        text: this.TWEET_OBJ.tweet,
+      });
+      const marginBottom = 15; // Assume margin bottom of each line to be 15px
+
+      this.TEXT_BLOCK_HEIGHT = (this.FONT_SIZE + marginBottom) * numLinesOfText;
+      this.TEXT_BLOCK_WIDTH = this.CONTEXT.measureText(textWithoutEmojis).width;
 
       // Center text vertically
-      const textPositionY = this.CANVAS_HEIGHT / 2 - frameTextHeight / 2;
-      const textPositionX = this.CANVAS_WIDTH / 2 - frameTextWidth / 2;
+      this.OFFSET_TEXT_TOP =
+        this.CANVAS_HEIGHT / 2 - this.TEXT_BLOCK_HEIGHT / 2;
+
+      // Offset x of overlay rect is 70px
+      // plus 39px from left of text overlay rect
+      this.OFFSET_TEXT_LEFT = 109;
 
       this.CONTEXT.textBaseline = 'middle';
-      this.OFFSET_TEXT_LEFT = textPositionX - frameTextWidth;
-      this.CONTEXT.fillText(frameText, this.OFFSET_TEXT_LEFT, textPositionY);
+      this.CONTEXT.fillText(
+        textWithoutEmojis,
+        this.OFFSET_TEXT_LEFT,
+        this.OFFSET_TEXT_TOP
+      );
 
-      // OFFSET_TOP = Calculated distance between top of frame to beginning of first line of text
-      // Had to tinker to arrive at the value 105 in order to adjust the vertical position of an emoji
-      this.OFFSET_TEXT_TOP = textPositionY + this.FONT_SIZE - 105;
-      // Assumed bottom margin between lines of text to be 24px
       this.LINE_GAP = this.FONT_SIZE + marginBottom;
+
+      this.drawUsername();
 
       return new Promise((resolve, reject) => {
         // Draw emoji in given positions
-        const emojis = this.drawEmojiOnPositions(emojiData);
-        Promise.all(emojis)
+        const emojis = this.drawEmojis(emojiData);
+        const profileImage = this.drawUserAvatar();
+        // Since we are fetching emojis and profile images remotely
+        // We'd draw the final image only when all pending promises are resolved.
+        Promise.all([...emojis, profileImage])
           .then(() => resolve(canvas.toDataURL()))
           .catch((error) => reject(error));
       });
