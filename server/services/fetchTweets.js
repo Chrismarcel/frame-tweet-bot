@@ -16,6 +16,7 @@ const getTweetToBeFramed = async (id) => {
     return {
       tweet: tweetData.full_text || '',
       profile_img: tweetData.user.profile_image_url_https,
+      name: tweetData.user.name,
       user_handle: `@${tweetData.user.screen_name}`,
       tweet_date: formatDate(tweetData.created_at),
     };

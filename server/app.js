@@ -3,13 +3,13 @@ const FrameGenerator = require('./services/frameTweet');
 const DuplexStream = require('stream').Duplex;
 const fetchMentions = require('./services/fetchTweets');
 
-const mockTweet1 = `I have a friend that's a software\nengineering 😡 god that takes 💋 out the time to\ngive me 🔥 explanations of computing\nsystems ⚡️ and parts I wish I could\nsteal his brain this 🤗 stuff is phenomenal!`;
-const mockTweet2 = `So I'm trying to test this random tweet 👏🏽 with emojis to see if it frames properly too 😊. Hopefully it works, fingers crossed 🤞. If it correctly renders this, then we good to go. 🤗 this stuff is phenomenal!`;
+const mockTweet = `So I'm trying to test this random tweet 👏🏽 with emojis to see if it frames properly too 😊. Hopefully it works, fingers crossed 🤞. If it correctly renders this, then we good to go. 🤗 this stuff is phenomenal!`;
 const mockTweetObj = {
-  tweet: mockTweet2,
+  tweet: mockTweet,
   profile_img: `https://pbs.twimg.com/profile_images/1299969177936166913/6IvqB49J_normal.jpg`,
   user_handle: '@Chrismarcel',
   tweet_date: '23/07/2020',
+  name: 'Chrismarcel James',
 };
 
 const app = express();
