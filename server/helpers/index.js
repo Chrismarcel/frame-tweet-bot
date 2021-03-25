@@ -65,7 +65,16 @@ const combineTextWithEmojis = ({ context, text }) => {
   return { numLinesOfText, textWithoutEmojis, emojiData };
 };
 
+const generateRandomReplies = () => {
+  const replies = [
+    `Hey 🤗, your framed tweet has been generated. `,
+    `Hi ya 👏🏽, here's your framed tweet.`,
+    `Heard you wanted a framed tweet 😏, here you go.`,
+  ];
+};
+
 module.exports = {
   formatDate,
   combineTextWithEmojis,
+  generateRandomReplies,
 };

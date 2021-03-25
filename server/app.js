@@ -6,7 +6,7 @@ const fetchMentions = require('./services/fetchTweets');
 const mockTweet = `So I'm trying to test this random tweet 👏🏽 with emojis to see if it frames properly too 😊. Hopefully it works, fingers crossed 🤞. If it correctly renders this, then we good to go. 🤗 this stuff is phenomenal!`;
 const mockTweetObj = {
   tweet: mockTweet,
-  profile_img: `https://pbs.twimg.com/profile_images/1299969177936166913/6IvqB49J_normal.jpg`,
+  profile_img: `https://pbs.twimg.com/profile_images/1353202161438646273/rVdAwRd7_400x400.jpg`,
   user_handle: '@Chrismarcel',
   tweet_date: '23/07/2020',
   name: 'Chrismarcel James',

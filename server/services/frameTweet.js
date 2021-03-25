@@ -5,6 +5,14 @@ const { combineTextWithEmojis } = require('../helpers');
 
 const PUBLIC_DIR = path.join(`${__dirname}`, '../../public');
 
+const FONT_NAME = 'Eczar';
+const FONT_DIRECTORY = `${PUBLIC_DIR}/fonts/Eczar.ttf`;
+
+const COLORS = {
+  BLACK: '#000000',
+  WHITE: '#ffffff',
+};
+
 // TODO: Implement error handling, we could find a way to batch failed operations
 // TODO: So we could retry the operations.
 
@@ -33,11 +41,20 @@ class FrameGenerator {
     return frames[randomIndex];
   }
 
-  drawTextOverlay() {
-    this.CONTEXT.fillStyle = '#ffffff';
-    // x = (Canvas Width - Width of Overlay Rect) / 2
-    // y = (Canvas Height - Height of Overlay Rect) / 2
-    this.CONTEXT.fillRect(70, 84.5, 884, 343);
+  drawTextBackground() {
+    this.CONTEXT.fillStyle = COLORS.WHITE;
+    const TEXT_BG_HEIGHT = 343;
+    const TEXT_BG_WIDTH = 884;
+    // x = (Canvas Width - Width of TEXT_BG Rect) / 2 = 70
+    // y = (Canvas Height - Height of TEXT_BG Rect) / 2 = 84.5
+    const TEXT_BG_OFFSET_X = 70;
+    const TEXT_BG_OFFSET_Y = 84.5;
+    this.CONTEXT.fillRect(
+      TEXT_BG_OFFSET_X,
+      TEXT_BG_OFFSET_Y,
+      TEXT_BG_WIDTH,
+      TEXT_BG_HEIGHT
+    );
   }
 
   async drawUserAvatar() {
@@ -53,6 +70,8 @@ class FrameGenerator {
 
       const profileImage = await loadImage(profile_img);
       context.imageSmoothingEnabled = false;
+      context.patternQuality = 'best'
+      context.quality = 'best'
 
       context.drawImage(
         profileImage,
@@ -70,15 +89,15 @@ class FrameGenerator {
 
   drawUsername() {
     const { name, user_handle, tweet_date } = this.TWEET_OBJ;
-    this.CONTEXT.font = 'bold 20px Eczar';
-    this.CONTEXT.fillStyle = '#000000';
+    this.CONTEXT.font = `${this.FONT_SIZE}px ${FONT_NAME}`;
+    this.CONTEXT.fillStyle = COLORS.BLACK;
 
     const offsetX = this.OFFSET_LEFT + this.PROFILE_IMG_WIDTH + 15;
 
     this.CONTEXT.fillText(name, offsetX, this.OFFSET_TOP);
 
-    this.CONTEXT.font = 'bold 14px Eczar';
-    this.CONTEXT.fillStyle = '#000000';
+    this.CONTEXT.font = `14px ${FONT_NAME}`;
+    this.CONTEXT.fillStyle = COLORS.BLACK;
     this.CONTEXT.fillText(
       `${user_handle} . ${tweet_date}`,
       offsetX,
@@ -86,7 +105,7 @@ class FrameGenerator {
     );
   }
 
-  drawEmojis(emojiData) {
+  drawEmojis(emojiData, emojiMarginTop = 15) {
     const emojis = [];
     emojiData.forEach((emojiPositions) => {
       const { rowIndex, url, textWidth } = emojiPositions;
@@ -94,9 +113,11 @@ class FrameGenerator {
       const EMOJI_HEIGHT = 22;
       const EMOJI_WIDTH = 22;
 
+      const offsetEmojiTop = rowIndex === 1 ? 15 : emojiMarginTop;
+
       const offsetLeft = this.OFFSET_LEFT + textWidth;
-      const offsetTop =
-        this.LINE_GAP * rowIndex + this.OFFSET_TOP + this.TWEET_MARGIN_TOP;
+      const marginTop = this.TWEET_MARGIN_TOP + offsetEmojiTop * rowIndex;
+      const offsetTop = this.LINE_GAP * rowIndex + marginTop;
 
       const emoji = loadImage(url).then((emoji) => {
         this.CONTEXT.drawImage(
@@ -115,12 +136,16 @@ class FrameGenerator {
 
   async frameTweet() {
     try {
-      registerFont(`${PUBLIC_DIR}/fonts/Eczar-Regular.ttf`, {
+      registerFont(`${FONT_DIRECTORY}`, {
         family: 'sans-serif',
       });
 
       const canvas = createCanvas(this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
       this.CONTEXT = canvas.getContext('2d');
+
+      this.CONTEXT.imageSmoothingEnabled = false;
+      this.CONTEXT.patternQuality = 'best'
+      this.CONTEXT.quality = 'best'
 
       const patternName = await this.getRandomFrameBackground();
       const frameImage = await this.fetchImage(`bg/${patternName}`);
@@ -134,18 +159,16 @@ class FrameGenerator {
         this.CANVAS_HEIGHT
       );
 
-      this.drawTextOverlay();
+      this.drawTextBackground();
 
-      this.CONTEXT.font = `${this.FONT_SIZE}px Eczar`;
+      this.CONTEXT.font = `${this.FONT_SIZE}px ${FONT_NAME}`;
       this.CONTEXT.textAlign = 'left';
-      this.CONTEXT.fillStyle = '#000000';
+      this.CONTEXT.fillStyle = COLORS.BLACK;
 
       const { textWithoutEmojis, emojiData } = combineTextWithEmojis({
         context: this.CONTEXT,
         text: this.TWEET_OBJ.tweet,
       });
-
-      const marginBottom = 15; // Assume margin bottom of each line to be 15px
 
       // Offset-Y of text overlay rect is 84.5px
       // plus 62px from top of text overlay rect
@@ -156,29 +179,34 @@ class FrameGenerator {
       this.OFFSET_LEFT = 109;
       this.CONTEXT.textBaseline = 'middle';
 
-      this.TWEET_MARGIN_TOP = 25;
-      const offsetTop =
-        this.OFFSET_TOP + this.PROFILE_IMG_HEIGHT + this.TWEET_MARGIN_TOP;
+      this.TWEET_MARGIN_TOP = this.OFFSET_TOP + 25;
+
+      const offsetTop = this.PROFILE_IMG_HEIGHT + this.TWEET_MARGIN_TOP;
       this.CONTEXT.fillText(textWithoutEmojis, this.OFFSET_LEFT, offsetTop);
 
-      this.LINE_GAP = this.FONT_SIZE + marginBottom;
+      this.LINE_GAP = this.FONT_SIZE * 1;
 
       this.drawUsername();
 
       return new Promise((resolve, reject) => {
-        // Draw emoji in given positions
+        // Draw emoji in given co-ordinates
         const emojis = this.drawEmojis(emojiData);
-        const profileImage = this.drawUserAvatar().then((avatar) => {
-          const img = new Image();
-          img.onload = () => {
-            const offsetTop = this.OFFSET_TOP - 15;
-            this.CONTEXT.drawImage(img, this.OFFSET_LEFT, offsetTop);
-          };
-          img.onerror = (error) => {
-            throw error;
-          };
-          img.src = avatar;
-        });
+        const profileImage = this.drawUserAvatar()
+          .then((avatar) => {
+            const img = new Image();
+            img.onload = () => {
+              const offsetTop = this.OFFSET_TOP - 15;
+              this.CONTEXT.drawImage(img, this.OFFSET_LEFT, offsetTop);
+            };
+            img.onerror = (error) => {
+              throw new Error(error);
+            };
+            img.src = avatar;
+          })
+          .catch((error) => {
+            console.log(error);
+            throw new Error(error);
+          });
         // Since we are fetching emojis and profile images remotely
         // We'd draw the final image only when all pending promises are resolved.
         Promise.all([...emojis, profileImage])
